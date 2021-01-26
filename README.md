@@ -3,6 +3,6 @@
 
 ## Scripts
 **tidying** Tidying the sample dataset for analysis<br/>
-**univariate** Univariate tests of difference between groups, and script for creating half violin/half boxplots with statistic's from rstatix output. <br/>
-![Image](example_violinboxplot.png)
+**univariate** Univariate tests of difference between groups, and script for creating half violin/half boxplots with statistic's from rstatix output. Ex: <br/>
+<img src="example_violinboxplot.png" width=50% height=50%><br/>
 **count_carbons_doublebonds** Count carbons and double bonds in lipids with naming conventions "class xx:y", "class(xx:y), "class(xx:y\xx:y)" (such as datasets supplied by Zora Bioscience or Biocrates)
