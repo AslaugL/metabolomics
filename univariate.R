@@ -27,6 +27,7 @@ theme_set(theme_minimal())
 
 #Read data----
 data <- readRDS('tidy_data.Rds')
+univariate_tests <- readRDS('univariate_test_results.Rds')
 #List for various df's to keep environment clean
 various <- list()
 
@@ -132,6 +133,61 @@ createViolinBoxPlot <- function(df, stats, filterp = 'yes', compounds = NULL, pr
   }
   
 }
+FCthreshold <- function(df, p_threshold = 0.05, FC_threshold = 1.5, color_by){
+  #Add a 'threshold' column to change the shape of datapoints in the volcano-plot
+  #and a 'color' column to color by based on which type of metabolite is over/underexpressed. 
+  #df must have a log2(FC) column
+  #p.adj = adjusted p.value threshold, FC = fold_change threshold, color_by = column in which information to color by is found
+  
+  #Get the log2 of the threshold for fold_change to filter by
+  fc <- log2(FC_threshold)
+  
+  #Add threshold column
+  added_columns <- df %>%
+    mutate(threshold = case_when(
+      p.adj < p_threshold & `log2(FC)` > fc ~ 'Overrepresented',
+      p.adj < p_threshold & `log2(FC)` < -fc ~ 'Underrepresented',
+      TRUE ~ 'Below threshold'
+    )) %>%
+    
+    #Add color_by column
+    mutate(color_by = case_when(
+      threshold %in% c('Overrepresented', 'Underrepresented') ~ !!as.name(color_by),
+      threshold == 'Below threshold' ~ 'Below threshold'
+    ))
+  
+  
+}
+plotVolcano <- function(df, title, fold_change_threshold = 1.5) {
+  #Use ggplot2 to plot a volcano plot
+  #Creates vertical lines to separate the different fold change categories, lines are drawn with a default fold change of 2
+  
+  #Tooltip for ggiraph
+  #df$tooltip <- c(paste0("Name: ", df$Item, "\n FDR: ", formatC(df$p.adj, format = 'e', digits = 2), "\n Fold change ", df$fold_change))
+  
+  #Plot
+  plot <- ggplot(df, aes(`log2(FC)`, -log10(p.adj), color = color_by, shape = threshold)) +
+    
+    #Add the scatters
+    geom_point(alpha = 0.5, size = 2, aes(fill = color_by, shape = threshold)) +
+    #geom_point_interactive(tooltip=df$tooltip, alpha = 0.5, size = 2) + #Add the  interactive tooltips
+    
+    #Add lines to show where the significant threshold is
+    geom_vline(xintercept = log2(fold_change_threshold), linetype = 'dashed', alpha = 0.5) +
+    geom_vline(xintercept = log2(1/fold_change_threshold), linetype = 'dashed', alpha = 0.5) +
+    geom_hline(yintercept = 1.3, linetype = 'dashed', alpha = 0.5) +
+    
+    #Make it nicer, change colors and labels
+    #scale_color_manual(values = c('Below threshold' = '#DDDDDD')) + 
+    scale_shape_manual(values = color_shape_manuals$shape$Volcanoplot) +
+    theme(legend.title = element_blank()) + #Remove legend title
+    
+    #Change labs
+    labs(
+      title = title,
+      x = "log2 fold change",
+      y = "-log10 adjusted p-value")
+} #Need to add dynamic color scale
 createDTable <- function(datatable){
   #Create an interactive table with ability to filter columns and download results
   table <- datatable(datatable, 
@@ -146,6 +202,23 @@ createDTable <- function(datatable){
                        )
   )
 }
+
+temp 
+
+#Plot color/shape manuals----
+color_shape_manuals = list(
+  'color' = list(
+    
+    #Color PCA loadings or volcano plots by type of metabolite
+    #'volcano' = setNames(c('#DDDDDD', '#88CCEE', '#44AA99'), c('Below threshold', unique(data$SUPER_PATHWAY))),
+    
+    #Color R2Y and Q2 in permutation plot
+    'permutations' = setNames(c('#21A884', '#482374'), c('R2Y', 'Q2Y'))
+  ),
+  'shape' = list(
+    'Volcanoplot' = setNames(c('\u25B2', '\u25CF', '\u25BC'), c('Overrepresented', 'Below threshold', 'Underrepresented')) #Upward/downward triangle for over/underrepresented features, circle for 'below threshold'
+  )
+)
 
 ### Univariate tests----
 #Shap wilk
@@ -209,7 +282,38 @@ univariate_tests <- bind_rows(
   full_join(temp$t_test, temp$t_test_effsize %>% select(-magnitude)),
   full_join(temp$wilcox, temp$wilcox_effsize %>% select(-magnitude))
 )
+#save univariate tests
+#saveRDS(univariate_tests, 'univariate_test_restuls.Rds')
 
+#Fold change
+various$fold_change <- data %>%
+  
+  #Get the median for each compound for both case and control
+  group_by(compound, health_status) %>%
+  summarise(median = median(value)) %>%
+  ungroup() %>%
+  
+  #Get the super pathway for filtering later
+  inner_join(., data %>% select(compound, SUPER_PATHWAY, SUB_PATHWAY)) %>% unique() %>%
+  
+  #Find fold change
+  pivot_wider(names_from = 'health_status',
+              values_from = 'median') %>%
+  
+  mutate(fold_change = case/control) %>% #1 Inf (Cotinine), some NaN (0 values in both case and control groups)
+  mutate(`log2(FC)` = log2(fold_change))
+
+#Add fold change to tidy_data
+#data <- inner_join(data, various$fold_change %>%
+#                     pivot_longer(cols = c(case, control),
+#                                  names_to = 'health_status',
+#                                  values_to = 'median'))
+  
+#saveRDS(data, 'tidy_data.Rds')
+
+### Plots----
+
+###
 #Half violin/half boxplot
 plot <- createViolinBoxPlot(data, univariate_tests, filterp = 'no', compounds = 'SM(18:1)')
 plot +
@@ -222,13 +326,27 @@ plot +
   #Fix tickmarks
   scale_x_discrete(breaks = c('case', 'control'), labels = c('ME/CFS', 'Healthy')) +
   scale_color_manual(values = c('#450A5C', '#7CD04F'), labels = c('ME/CFS', 'Healthy'), name = 'Health status', #Viridis colors
-                    guide = guide_legend(override.aes = list(shape = c(21,21), fill = c('#450A5C', '#7CD04F')))) #Filled circular shapes
-  
-ggsave('example_violinboxplot.png')
+                     guide = guide_legend(override.aes = list(shape = c(21,21), fill = c('#450A5C', '#7CD04F')))) #Filled circular shapes
 
-#Fold change
-fold_change <- tidy_data %>%
-  pivot_wider(names_from = 'health_status',
-              values_from = 'value') %>%
-  mutate(fold_change = case/control)
+#ggsave('example_violinboxplot.png')
+
+###
+# Volcano plots
+
+
+temp <- inner_join(data, univariate_tests) %>%
+  FCthreshold(., color_by = 'SUPER_PATHWAY') %>%
+  #Add 'Below threshold' at the end of the factor for prettier plots
+  mutate_at('color_by', ~as.factor(.)) %>%
+  mutate_at(., 'color_by', ~fct_relevel(., 'Below threshold', after = Inf)) %>%
+  #Only columns necessary or plot
+  select(compound, `log2(FC)`, p.adj, color_by, threshold) %>% unique()
+
+plot <- plotVolcano(temp, 'ME/CFS vs Control')
+plot +
+  #Change color scale
+  scale_color_manual(values = c('Below threshold' = '#DDDDDD', 'Amino Acid' = '#88CCEE', 'Peptide' = '#44AA99')) +
+  
+  #Add labels when so few mets are different
+  geom_label_repel(data = temp %>% filter(threshold != 'Below threshold'), aes(label = compound), show.legend = FALSE)
 
