@@ -203,7 +203,6 @@ createDTable <- function(datatable){
   )
 }
 
-temp 
 
 #Plot color/shape manuals----
 color_shape_manuals = list(
@@ -337,8 +336,8 @@ plot +
 temp <- inner_join(data, univariate_tests) %>%
   FCthreshold(., color_by = 'SUPER_PATHWAY') %>%
   #Add 'Below threshold' at the end of the factor for prettier plots
-  mutate_at('color_by', ~as.factor(.)) %>%
-  mutate_at(., 'color_by', ~fct_relevel(., 'Below threshold', after = Inf)) %>%
+  mutate_at(c('threshold', 'color_by'), ~as.factor(.)) %>%
+  mutate_at(c('threshold', 'color_by'), ~fct_relevel(., 'Below threshold', after = Inf)) %>%
   #Only columns necessary or plot
   select(compound, `log2(FC)`, p.adj, color_by, threshold) %>% unique()
 
@@ -348,5 +347,7 @@ plot +
   scale_color_manual(values = c('Below threshold' = '#DDDDDD', 'Amino Acid' = '#88CCEE', 'Peptide' = '#44AA99')) +
   
   #Add labels when so few mets are different
-  geom_label_repel(data = temp %>% filter(threshold != 'Below threshold'), aes(label = compound), show.legend = FALSE)
+  geom_label_repel(data = temp %>% filter(threshold != 'Below threshold'),
+                   aes(label = compound), show.legend = FALSE, size = 3)
 
+#ggsave('volcanoplot.png')
