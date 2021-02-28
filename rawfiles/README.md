@@ -1,1 +1,1 @@
-Raw files to work with.
+Raw files to work with. Datasets found in *Germain A, Barupal DK, Levine SM, Hanson MR. Comprehensive Circulatory Metabolomics in ME/CFS Reveals Disrupted Metabolism of Acyl Lipids and Steroids. Metabolites. 2020 Jan 14;10(1):34. doi: 10.3390/metabo10010034* and  *Germain A, Ruppert D, Levine SM, Hanson MR. Prospective Biomarkers from Plasma Metabolomics of Myalgic Encephalomyelitis/Chronic Fatigue Syndrome Implicate Redox Imbalance in Disease Symptomatology. Metabolites. 2018 Dec 6;8(4):90. doi: 10.3390/metabo8040090.*
