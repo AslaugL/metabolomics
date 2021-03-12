@@ -26,7 +26,7 @@ various <- list()
 temp <- t(as_tibble(data$data_matrix)) %>% #As tibble to keep row/columnnames
   row_to_names(., 1) %>% #Turn compound_id to column names
   as_tibble(rownames = NA) %>% #Turn into tibble, keep sample_id rownames
-  rownames_to_column(., 'sample_id') %>%
+  rownames_to_column(., 'sample_id') %>% #'sample_id' is used in later functions to analyze the data
   inner_join(., data$sample_metadata %>% select(-sample_id_internal))
 
 #Get info on missing values and low variance metabolites in controls
@@ -83,5 +83,8 @@ tidy_data <- data$data_matrix %>%
   
   #get compound names, not just id, and some metadata
   inner_join(., data$data_dictionary %>% select(compound_id, BIOCHEMICAL, SUPER_PATHWAY, SUB_PATHWAY)) %>%
-  rename(compound = BIOCHEMICAL)
+  
+  #Change column names to work with other functions later, feature names column is named 'feature' and the column that show which group participants are in called 'group'
+  rename(feature = BIOCHEMICAL,
+         group = health_status)
 
