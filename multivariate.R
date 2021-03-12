@@ -27,26 +27,7 @@ library(cowplot)
 theme_set(theme_minimal() + theme(legend.position = 'bottom'))
 
 #Read data
-raw_data <- read_xlsx('germain2018.xlsx')
-
-tidy_data <- raw_data %>%
-  
-  #Remove unnecessary columns
-  select(-c(`PATHWAY SORTORDER`, `COMP ID`, `PLATFORM`, `CHEMICAL ID`, RI, MASS, CAS, PUBCHEM, KEGG, HMDB)) %>%
-  
-  #Tidy
-  pivot_longer(.,
-               cols = -c(BIOCHEMICAL, `SUPER PATHWAY`, `SUB PATHWAY`),
-               names_to = 'sample',
-               values_to = 'value') %>%
-  #Rename BIOCHEMICAL to feature for plotting functions
-  rename(feature = BIOCHEMICAL, feature_anno = `SUPER PATHWAY`) %>%
-  #Create a column for control/sample status
-  mutate(group = case_when(
-    str_detect(sample, 'C') ~ 'Control',
-    str_detect(sample, 'P') ~ 'ME/CFS'
-  ))
-
+tidy_data <- readRDS('tidy_data2018.Rds')
 
 #List for various df's to keep environment clean
 various <- list()
