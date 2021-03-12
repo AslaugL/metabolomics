@@ -1,6 +1,6 @@
 #Set working directory
 #setwd('C:/Users/Aslaug L/Desktop/Master')
-setwd('C:/Users/aslau/Documents/Uni/Master/gitHub')
+setwd('C:/Users/aslau/Documents/Uni/Master/gitHub/MECFS')
 
 #Load libraries
 library(tidyverse)
