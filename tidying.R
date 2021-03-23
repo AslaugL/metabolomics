@@ -15,8 +15,8 @@ library(funModeling)
 #a 'value' column containing the values of the features for the samples.
 #Low variance or high missing number features should be discarded.
 
-#Read data----
-#2020 dataset
+#Read data
+#2020 dataset----
 data2020 <- excel_sheets('germain2020.xlsx') %>% #Get names of sheets
   set_names() %>%
   map(read_excel,
@@ -24,7 +24,7 @@ data2020 <- excel_sheets('germain2020.xlsx') %>% #Get names of sheets
 #List for various df's to keep environment clean
 various <- list()
 
-#Get to know the data----
+#Get to know the data
 #No info on the samples
 
 #Missing values, low variance metabolites in control and cases
@@ -42,7 +42,7 @@ various$missing_and_zeros_control <- temp %>%
   df_status(.) %>%
   #Percentage of unique values for each metabolite
   mutate(p_unique = unique/sum(temp$group == 'control')*100) %>%
-  #Filter out metabolites with <5% unique values
+  #Filter out metabolites with <5% unique values and only one unique value
   filter(p_unique > 5 & unique > 1) %>%
   #Rename variable to compound_id
   rename(compound_id = variable)
@@ -52,7 +52,7 @@ various$missing_and_zeros_cases <- temp %>%
   df_status(.) %>%
   #Percentage of unique values for each metabolite
   mutate(p_unique = unique/sum(temp$sample_id == 'case')*100) %>%
-  #Filter out metabolites with <5% unique values
+  #Filter out metabolites with <5% unique values and only one unique value
   filter(p_unique > 5 & unique > 1) %>%
   #Rename variable to compound_id
   rename(compound_id = variable)
@@ -65,7 +65,9 @@ various$removed_lowVar_controls <- temp %>%
   select(compound_id) %>%
   unique() %>%
   anti_join(., various$missing_and_zeros_control) %>%
-  inner_join(data2020$data_dictionary) #Add compound metadata
+  inner_join(data2020$data_dictionary) %>% #Add compound metadata
+  mutate(group = 'control') %>%
+  select(BIOCHEMICAL, group)
 
 various$removed_lowVar_cases <- temp %>%
   pivot_longer(cols = -sample_id,
@@ -74,9 +76,22 @@ various$removed_lowVar_cases <- temp %>%
   select(compound_id) %>%
   unique() %>%
   anti_join(., various$missing_and_zeros_cases) %>%
-  inner_join(data2020$data_dictionary) #Add compound metadata
+  inner_join(data2020$data_dictionary) %>% #Add compound metadata
+  mutate(group = 'cases') %>%
+  select(BIOCHEMICAL, group)
 
-#Remove variables with <5% variance, turn into Tidy format----
+#Only removed from one group?
+various$removed_from_one_group_only <- full_join(various$removed_lowVar_controls, various$removed_lowVar_cases, by = 'BIOCHEMICAL') %>%
+  pivot_longer(cols = -BIOCHEMICAL,
+               names_to = 'tmp',
+               values_to = 'removed_from') %>%
+  select(-tmp) %>%
+  drop_na() %>%
+  add_count(BIOCHEMICAL) %>%
+  filter(n == 1) %>%
+  select(-n)
+
+#Remove variables with low variance, turn into Tidy format
 temp <- full_join(various$removed_lowVar_controls, various$removed_lowVar_cases) #Metabolites with <5% variance in either group
 
 tidy_data <- data2020$data_matrix %>%
@@ -106,7 +121,7 @@ tidy_data <- data2020$data_matrix %>%
 
 saveRDS(tidy_data, 'tidy_data2020.Rds')
 
-#2018 dataset
+#2018 dataset----
 #Read data
 data2018 <- read_xlsx('germain2018.xlsx')
 
@@ -141,7 +156,7 @@ various$missing_and_zeros_control <- temp %>%
   df_status(.) %>%
   #Percentage of unique values for each metabolite
   mutate(p_unique = unique/sum(temp == 'Control')*100) %>%
-  #Filter out metabolites with <5% unique values
+  #Filter out metabolites with <5% unique values and only one unique value
   filter(p_unique > 5 & unique > 1) %>%
   #Rename variable to compound_id
   rename(feature = variable)
@@ -151,7 +166,7 @@ various$missing_and_zeros_cases <- temp %>%
   df_status(.) %>%
   #Percentage of unique values for each metabolite
   mutate(p_unique = unique/sum(temp == 'ME/CFS')*100) %>%
-  #Filter out metabolites with <5% unique values
+  #Filter out metabolites with <5% unique values and only one unique value
   filter(p_unique > 5 & unique > 1) %>%
   #Rename variable to compound_id
   rename(feature = variable)
@@ -160,13 +175,28 @@ various$missing_and_zeros_cases <- temp %>%
 various$removed_lowVar_controls <- tidy_data %>%
   anti_join(., various$missing_and_zeros_control) %>%
   select(feature) %>%
-  unique()
+  unique() %>%
+  mutate(group = 'Control')
 
 various$removed_lowVar_cases <- tidy_data %>%
   anti_join(., various$missing_and_zeros_cases) %>%
   select(feature) %>%
-  unique()
-temp <- full_join(various$removed_lowVar_controls, various$removed_lowVar_cases) #Metabolites with <5% variance in either group
+  unique() %>%
+  mutate(group = 'ME/CFS')
+
+#Only removed from one group?
+various$removed_from_one_group_only <- full_join(various$removed_lowVar_controls, various$removed_lowVar_cases, by = 'feature') %>%
+  pivot_longer(cols = -feature,
+               names_to = 'tmp',
+               values_to = 'removed_from') %>%
+  select(-tmp) %>%
+  drop_na() %>%
+  add_count(feature) %>%
+  filter(n == 1) %>%
+  select(-n)
+
+#Remove low variance features
+temp <- full_join(various$removed_lowVar_controls, various$removed_lowVar_cases) #Metabolites with low variance in either group
 
 #Remove from final df
 tidy_data <- tidy_data %>%
